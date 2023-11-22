@@ -258,10 +258,14 @@ pub fn resolve_language(
             .or_insert(1) += 1;
     }
 
+    // Hacky workaround for Smalltalk/C# collision - temp only
     let mut ordered: Vec<(&String, &usize)> = probabilities.iter().collect();
-    ordered.sort_by_key(|&(_, v)| v);
-    ordered.reverse();
-    debug!("LANGUAGE RESOLVED with possiblities: {:?}", ordered);
+    ordered.sort_by(|a, b| {
+        match b.1.cmp(a.1) {
+            std::cmp::Ordering::Equal => a.0.cmp(b.0), // If weights are equal, then sort by name
+            other => other,                            // Otherwise, sort by weight
+        }
+    });
 
     if !ordered.is_empty() {
         return Ok(Some(
