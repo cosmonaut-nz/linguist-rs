@@ -106,7 +106,7 @@ pub(crate) fn determine_multiline_exec(data: &[u8]) -> Option<String> {
     let mut cursor = Cursor::new(data);
     let mut buf = String::new();
 
-    let shebang_exec = Regex::new(r#"exec (\w+).+\$0.+\$@"#).unwrap();
+    let shebang_exec = Regex::new(r"exec (\w+).+\$0.+\$@").unwrap();
 
     for _i in 0..5 {
         buf.clear();

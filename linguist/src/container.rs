@@ -39,7 +39,6 @@ impl InMemoryLanguageContainer {
             if let Some(heuristic) = self.heuristics.get_mut(ext) {
                 if !heuristic.contains(&rule) {
                     heuristic.push(rule.clone());
-                } else {
                 }
             } else {
                 self.heuristics

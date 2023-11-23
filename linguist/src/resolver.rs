@@ -128,7 +128,7 @@ pub fn resolve_language_by_content(
             let matcher = Regex::new(&rule.patterns.join("|"))?;
 
             for line in content.lines() {
-                if matcher.is_match(&line) {
+                if matcher.is_match(line) {
                     return Ok(container.get_language_by_name(&rule.language));
                 }
             }
@@ -194,7 +194,6 @@ pub fn resolve_languages_by_shebang(
             .to_owned();
     }
 
-    let mut interpreter = interpreter;
     if interpreter == "sh" {
         interpreter = determine_multiline_exec(buf.buffer()).unwrap();
     }
@@ -241,7 +240,7 @@ pub fn resolve_language(
         for lang in candidate {
             *probabilities
                 .entry(lang.name.clone().to_lowercase())
-                .or_insert(1) += 1;
+                .or_insert(1) += 30;
         }
     }
 
@@ -249,14 +248,14 @@ pub fn resolve_language(
         for candidate in candidates {
             *probabilities
                 .entry(candidate.name.clone().to_lowercase())
-                .or_insert(1) += 1;
+                .or_insert(1) += 10;
         }
     }
 
     if let Ok(Some(candidate)) = resolve_language_by_content(&file, container) {
         *probabilities
             .entry(candidate.name.clone().to_lowercase())
-            .or_insert(1) += 1;
+            .or_insert(1) += 50;
     }
 
     let mut ordered: Vec<(&String, &usize)> = probabilities.iter().collect();
