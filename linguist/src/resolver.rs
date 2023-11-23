@@ -258,7 +258,7 @@ pub fn resolve_language(
             .or_insert(1) += 1;
     }
 
-    // Hacky workaround for Smalltalk/C# collision - temp only
+    // TODO: Hacky workaround for Smalltalk/C# collision - temp only
     let mut ordered: Vec<(&String, &usize)> = probabilities.iter().collect();
     ordered.sort_by(|a, b| {
         match b.1.cmp(a.1) {
@@ -266,6 +266,7 @@ pub fn resolve_language(
             other => other,                            // Otherwise, sort by weight
         }
     });
+    debug!("LANGUAGE RESOLVED with possiblities: {:?}", ordered);
 
     if !ordered.is_empty() {
         return Ok(Some(
