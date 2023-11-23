@@ -134,6 +134,7 @@ pub(crate) fn determine_multiline_exec(data: &[u8]) -> Option<String> {
 /// - possessive quantifier
 ///
 /// For a detailed reference on supported syntax see [RE2 Syntax](https://github.com/google/re2/wiki/Syntax)
+#[allow(dead_code)]
 pub(crate) fn is_unsupported_regex_syntax(input: &str) -> bool {
     input.contains("(?<")
         || input.contains("(?=")
