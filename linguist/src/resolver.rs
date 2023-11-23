@@ -1,4 +1,3 @@
-use log::debug;
 use std::collections::HashMap;
 use std::ffi::OsString;
 use std::fmt::Display;
@@ -128,8 +127,10 @@ pub fn resolve_language_by_content(
         for rule in rules {
             let matcher = Regex::new(&rule.patterns.join("|"))?;
 
-            if matcher.is_match(&content) {
-                return Ok(container.get_language_by_name(&rule.language));
+            for line in content.lines() {
+                if matcher.is_match(&line) {
+                    return Ok(container.get_language_by_name(&rule.language));
+                }
             }
         }
     }
@@ -258,15 +259,9 @@ pub fn resolve_language(
             .or_insert(1) += 1;
     }
 
-    // TODO: Hacky workaround for Smalltalk/C# collision - temp only
     let mut ordered: Vec<(&String, &usize)> = probabilities.iter().collect();
-    ordered.sort_by(|a, b| {
-        match b.1.cmp(a.1) {
-            std::cmp::Ordering::Equal => a.0.cmp(b.0), // If weights are equal, then sort by name
-            other => other,                            // Otherwise, sort by weight
-        }
-    });
-    debug!("LANGUAGE RESOLVED with possiblities: {:?}", ordered);
+    ordered.sort_by_key(|&(_, v)| v);
+    ordered.reverse();
 
     if !ordered.is_empty() {
         return Ok(Some(
