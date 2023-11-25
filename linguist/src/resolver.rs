@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::fmt::Display;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
@@ -9,7 +9,7 @@ use regex::Regex;
 
 use crate::container::Container;
 use crate::error::LinguistError;
-use crate::utils::{determine_multiline_exec, has_shebang, is_binary};
+use crate::utils::{determine_multiline_exec_from_str, has_shebang, is_binary};
 
 /// A `Language` exposes the properties of a language definition.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -90,12 +90,22 @@ pub struct HeuristicRule {
     pub patterns: Vec<String>,
 }
 
-/// Used to resolve all possible [`Language`]s by the given filename.
+/// Used to resolve all possible [`Language`]s by the given file.
 pub fn resolve_languages_by_filename(
     file: impl AsRef<Path>,
     container: &impl Container,
 ) -> Result<Vec<&Language>, LinguistError> {
     match container.get_languages_by_filename(file) {
+        Some(langs) => Ok(langs),
+        _ => Err(LinguistError::LanguageNotFound),
+    }
+}
+/// Used to resolve all possible [`Language`]s by the given filename.
+pub fn resolve_languages_by_filename_str(
+    filename: impl AsRef<OsString>,
+    container: &impl Container,
+) -> Result<Vec<&Language>, LinguistError> {
+    match container.get_languages_by_filename_str(filename.as_ref()) {
         Some(langs) => Ok(langs),
         _ => Err(LinguistError::LanguageNotFound),
     }
@@ -111,6 +121,16 @@ pub fn resolve_languages_by_extension(
         _ => Err(LinguistError::LanguageNotFound),
     }
 }
+/// Used to resolve all possible [`Language`]s by the given extension str.
+pub fn resolve_languages_by_extension_str(
+    ext: impl AsRef<OsString>,
+    container: &impl Container,
+) -> Result<Vec<&Language>, LinguistError> {
+    match container.get_languages_by_extension_str(ext.as_ref()) {
+        Some(langs) => Ok(langs),
+        _ => Err(LinguistError::LanguageNotFound),
+    }
+}
 
 /// Used to resolve all possible [`Language`]s by the file contents.
 #[cfg(feature = "matcher")]
@@ -118,16 +138,36 @@ pub fn resolve_language_by_content(
     file: impl AsRef<Path>,
     container: &impl Container,
 ) -> Result<Option<&Language>, LinguistError> {
+    let ext = match file.as_ref().extension() {
+        Some(ext) => ext,
+        _ => match file.as_ref().file_name() {
+            Some(name) => name,
+            _ => return Ok(None),
+        },
+    };
     let content = match std::fs::read_to_string(file.as_ref()) {
         Ok(content) => content,
         _ => return Err(LinguistError::FileNotFound),
     };
 
-    if let Some(rules) = container.get_heuristics_by_extension(file.as_ref()) {
+    resolve_language_by_content_str(content, ext, container)
+}
+/// Used to resolve all possible [`Language`]s by the file contents.
+#[cfg(feature = "matcher")]
+pub fn resolve_language_by_content_str(
+    content: impl AsRef<OsStr>,
+    ext: impl AsRef<OsStr>,
+    container: &impl Container,
+) -> Result<Option<&Language>, LinguistError> {
+    let content_str = content
+        .as_ref()
+        .to_str()
+        .ok_or(LinguistError::InvalidData)?;
+    if let Some(rules) = container.get_heuristics_by_extension_str(ext.as_ref()) {
         for rule in rules {
             let matcher = Regex::new(&rule.patterns.join("|"))?;
 
-            for line in content.lines() {
+            for line in content_str.lines() {
                 if matcher.is_match(line) {
                     return Ok(container.get_language_by_name(&rule.language));
                 }
@@ -148,9 +188,32 @@ pub fn resolve_languages_by_shebang(
         Ok(file) => file,
         Err(err) => return Err(LinguistError::IOError(err)),
     };
+
     let mut buf = BufReader::new(file);
-    let mut line = String::new();
-    let _ = buf.read_line(&mut line);
+    let mut file_content = String::new();
+
+    // Read the first few lines of the file
+    for _ in 0..5 {
+        let mut line = String::new();
+        let bytes_read = buf.read_line(&mut line).map_err(LinguistError::IOError)?;
+        if bytes_read == 0 {
+            break;
+        }
+        file_content.push_str(&line);
+    }
+
+    // Call the main logic function with the first line
+    resolve_languages_by_shebang_line_str(&file_content, container)
+}
+/// Resolves the language according to the first line of a file contents
+fn resolve_languages_by_shebang_line_str(
+    file_contents: impl AsRef<OsStr>,
+    container: &impl Container,
+) -> Result<Option<Vec<&Language>>, LinguistError> {
+    let line = file_contents
+        .as_ref()
+        .to_str()
+        .ok_or(LinguistError::InvalidData)?;
 
     // check whether the first line of the file is a shebang
     if !has_shebang(line.as_bytes()) {
@@ -195,7 +258,7 @@ pub fn resolve_languages_by_shebang(
     }
 
     if interpreter == "sh" {
-        interpreter = determine_multiline_exec(buf.buffer()).unwrap();
+        interpreter = determine_multiline_exec_from_str(file_contents.as_ref()).unwrap();
     }
 
     let python_version = Regex::new(r"^python[0-9]*\.[0-9]*").unwrap();
@@ -240,7 +303,7 @@ pub fn resolve_language(
         for lang in candidate {
             *probabilities
                 .entry(lang.name.clone().to_lowercase())
-                .or_insert(1) += 30;
+                .or_insert(1) += 10;
         }
     }
 
@@ -248,7 +311,7 @@ pub fn resolve_language(
         for candidate in candidates {
             *probabilities
                 .entry(candidate.name.clone().to_lowercase())
-                .or_insert(1) += 10;
+                .or_insert(1) += 20;
         }
     }
 

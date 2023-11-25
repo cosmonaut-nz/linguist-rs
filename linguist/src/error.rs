@@ -12,6 +12,8 @@ pub enum LinguistError {
     PatternCompileError(regex::Error),
     /// Represents an error occured concerning io stuff.
     IOError(std::io::Error),
+    /// Represents an inability to handle the file contents
+    InvalidData,
 }
 
 impl From<std::io::Error> for LinguistError {
