@@ -1,7 +1,4 @@
-use std::{
-    io::{BufRead, Cursor, Read},
-    path::Path,
-};
+use std::{ffi::OsStr, io::Read, path::Path};
 
 use crate::error::LinguistError;
 use regex::{Regex, RegexSet};
@@ -100,29 +97,26 @@ pub(crate) fn has_shebang(data: &[u8]) -> bool {
     data.starts_with(b"#!")
 }
 
-/// Checks if the contents of a file starts with a shebang and the supplied interpreter.
-pub(crate) fn determine_multiline_exec(data: &[u8]) -> Option<String> {
-    let mut interpreter = "sh";
-    let mut cursor = Cursor::new(data);
-    let mut buf = String::new();
+/// Solution for the chain of IO calls (open/close of files)
+pub(crate) fn determine_multiline_exec_from_str(content: &OsStr) -> Option<String> {
+    let content_str = match content.to_str() {
+        Some(str) => str,
+        None => return None,
+    };
 
     let shebang_exec = Regex::new(r"exec (\w+).+\$0.+\$@").unwrap();
+    let lines = content_str.lines().take(5);
 
-    for _i in 0..5 {
-        buf.clear();
-        if let Ok(result) = cursor.read_line(&mut buf) {
-            if result == 0 {
-                break;
-            }
-        }
-
-        if shebang_exec.is_match(&buf) {
-            interpreter = shebang_exec.captures(&buf).unwrap().get(1).unwrap().into();
-            break;
+    for line in lines {
+        if shebang_exec.is_match(line) {
+            return shebang_exec
+                .captures(line)
+                .and_then(|caps| caps.get(1))
+                .map(|m| m.as_str().to_string());
         }
     }
 
-    Some(interpreter.to_string())
+    Some("sh".to_string())
 }
 
 /// Checks whether the supplied input contains constructs that are not supported by the

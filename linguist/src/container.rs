@@ -1,4 +1,8 @@
-use std::{collections::HashMap, ffi::OsString, path::Path};
+use std::{
+    collections::HashMap,
+    ffi::{OsStr, OsString},
+    path::Path,
+};
 
 use crate::resolver::{HeuristicRule, Language};
 
@@ -9,8 +13,12 @@ use crate::resolver::{HeuristicRule, Language};
 pub trait Container {
     /// Returns a list of all [`Language`] definitions identified by its name.
     fn get_language_by_name(&self, name: &str) -> Option<&Language>;
+    /// Returns a list of all [`Language`] definitions identified by the extension string provided.
+    fn get_languages_by_extension_str(&self, ext: &OsStr) -> Option<Vec<&Language>>;
     /// Returns a list of all [`Language`] definitions identified by the extension of the given file.
     fn get_languages_by_extension(&self, file: impl AsRef<Path>) -> Option<Vec<&Language>>;
+    /// Returns a list of all [`Language`] definitions identified by the name of the given file.
+    fn get_languages_by_filename_str(&self, filename: &OsStr) -> Option<Vec<&Language>>;
     /// Returns a list of all [`Language`] definitions identified by the name of the given file.
     fn get_languages_by_filename(&self, file: impl AsRef<Path>) -> Option<Vec<&Language>>;
     /// Returns a list of all [`Language`] definitions identified by its interpreter.
@@ -18,6 +26,8 @@ pub trait Container {
     /// Returns a list of all [`HeuristicRule`] definitions identified by the extension of the given file.
     #[cfg(feature = "matcher")]
     fn get_heuristics_by_extension(&self, file: impl AsRef<Path>) -> Option<&Vec<HeuristicRule>>;
+    #[cfg(feature = "matcher")]
+    fn get_heuristics_by_extension_str(&self, extension: &OsStr) -> Option<&Vec<HeuristicRule>>;
 }
 
 #[derive(Debug, Default)]
@@ -64,6 +74,9 @@ impl Container for InMemoryLanguageContainer {
             },
         };
 
+        self.get_languages_by_extension_str(ext)
+    }
+    fn get_languages_by_extension_str(&self, ext: &OsStr) -> Option<Vec<&Language>> {
         let candidates: Vec<&Language> = self
             .languages
             .iter()
@@ -76,15 +89,14 @@ impl Container for InMemoryLanguageContainer {
             None
         }
     }
-
     fn get_languages_by_filename(&self, file: impl AsRef<Path>) -> Option<Vec<&Language>> {
+        self.get_languages_by_extension_str(file.as_ref().as_os_str())
+    }
+    fn get_languages_by_filename_str(&self, filename: &OsStr) -> Option<Vec<&Language>> {
         let candidates: Vec<&Language> = self
             .languages
             .iter()
-            .filter(|lang| {
-                lang.filenames
-                    .contains(&file.as_ref().as_os_str().to_os_string())
-            })
+            .filter(|lang| lang.filenames.contains(&filename.to_os_string()))
             .collect();
 
         if !candidates.is_empty() {
@@ -101,6 +113,10 @@ impl Container for InMemoryLanguageContainer {
             _ => return None,
         };
 
+        self.get_heuristics_by_extension(ext)
+    }
+    #[cfg(feature = "matcher")]
+    fn get_heuristics_by_extension_str(&self, ext: &OsStr) -> Option<&Vec<HeuristicRule>> {
         let heuristics = self.heuristics.get(&ext.to_os_string());
         heuristics
     }
