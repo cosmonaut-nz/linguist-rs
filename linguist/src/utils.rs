@@ -4,11 +4,31 @@ use crate::error::LinguistError;
 use regex::{Regex, RegexSet};
 
 pub static CONFIGURATION_EXTENSIONS: [&str; 6] = ["xml", "json", "toml", "yaml", "ini", "sql"];
+pub static DOCS: &[&str; 18] = &[
+    r"^[Dd]ocs?/",
+    r"(^|/)[Dd]ocumentation/",
+    r"(^|/)[Gg]roovydoc/",
+    r"(^|/)[Jj]avadoc/",
+    r"^[Mm]an/",
+    r"^[Ee]xamples/",
+    r"^[Dd]emos?/",
+    r"(^|/)inst/doc/",
+    r"(^|/)CITATION(\.cff|(S)?(\.(bib|md))?)$",
+    r"(^|/)CHANGE(S|LOG)?(\.|$)",
+    r"(^|/)CONTRIBUTING(\.|$)",
+    r"(^|/)COPYING(\.|$)",
+    r"(^|/)INSTALL(\.|$)",
+    r"(^|/)LICEN[CS]E(\.|$)",
+    r"(^|/)[Ll]icen[cs]e(\.|$)",
+    r"(^|/)README(\.|$)",
+    r"(^|/)[Rr]eadme(\.|$)",
+    r"^[Ss]amples?/",
+];
 
 /// Checks if a file is a configuration file by checking if it has a configuration extension.
 ///
 /// # Example
-/// ```should_panic
+/// ```
 /// use std::path::PathBuf;
 /// use linguist::utils::is_configuration;
 ///

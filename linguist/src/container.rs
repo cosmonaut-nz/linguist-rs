@@ -90,7 +90,11 @@ impl Container for InMemoryLanguageContainer {
         }
     }
     fn get_languages_by_filename(&self, file: impl AsRef<Path>) -> Option<Vec<&Language>> {
-        self.get_languages_by_extension_str(file.as_ref().as_os_str())
+        if let Some(file_name) = file.as_ref().file_name() {
+            self.get_languages_by_extension_str(file_name)
+        } else {
+            None
+        }
     }
     fn get_languages_by_filename_str(&self, filename: &OsStr) -> Option<Vec<&Language>> {
         let candidates: Vec<&Language> = self

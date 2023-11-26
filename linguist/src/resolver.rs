@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
 use std::fmt::Display;
+use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 
@@ -102,7 +103,7 @@ pub fn resolve_languages_by_filename(
 }
 /// Used to resolve all possible [`Language`]s by the given filename.
 pub fn resolve_languages_by_filename_str(
-    filename: impl AsRef<OsString>,
+    filename: impl AsRef<OsStr>,
     container: &impl Container,
 ) -> Result<Vec<&Language>, LinguistError> {
     match container.get_languages_by_filename_str(filename.as_ref()) {
@@ -123,7 +124,7 @@ pub fn resolve_languages_by_extension(
 }
 /// Used to resolve all possible [`Language`]s by the given extension str.
 pub fn resolve_languages_by_extension_str(
-    ext: impl AsRef<OsString>,
+    ext: impl AsRef<OsStr>,
     container: &impl Container,
 ) -> Result<Vec<&Language>, LinguistError> {
     match container.get_languages_by_extension_str(ext.as_ref()) {
@@ -279,19 +280,37 @@ fn resolve_languages_by_shebang_line_str(
     }
 }
 
-/// Resolve the [`Language`] of the given file. It will try to resolve the language by the filename,
-/// extension, shebang and content. The most likely language will be returned.
-pub fn resolve_language(
+/// Resolve the [`Language`] of the given file.
+pub fn resolve_language_from_file(
     file: impl AsRef<Path>,
     container: &impl Container,
 ) -> Result<Option<&Language>, LinguistError> {
     if is_binary(&file)? {
         return Ok(None);
     }
+    let file_contents = fs::read_to_string(file.as_ref()).map_err(LinguistError::IOError)?;
+    let file_name = file.as_ref().file_name().unwrap_or_default();
+    let extension = file
+        .as_ref()
+        .extension()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
 
+    resolve_language_from_content_str(file_contents, extension, file_name, container)
+}
+
+/// Resolve the [`Language`] of the given content and extension. It will try to resolve the language by the filename,
+/// extension, shebang and content. The most likely language will be returned.
+pub fn resolve_language_from_content_str(
+    file_contents: impl AsRef<OsStr>,
+    file_name: impl AsRef<OsStr>,
+    file_ext: impl AsRef<OsStr>,
+    container: &impl Container,
+) -> Result<Option<&Language>, LinguistError> {
     let mut probabilities: HashMap<String, usize> = HashMap::new();
 
-    if let Ok(candidates) = resolve_languages_by_filename(&file, container) {
+    if let Ok(candidates) = resolve_languages_by_filename_str(file_name, container) {
         for candidate in candidates {
             *probabilities
                 .entry(candidate.name.clone().to_lowercase())
@@ -299,7 +318,7 @@ pub fn resolve_language(
         }
     }
 
-    if let Ok(Some(candidate)) = resolve_languages_by_shebang(&file, container) {
+    if let Ok(Some(candidate)) = resolve_languages_by_shebang_line_str(&file_contents, container) {
         for lang in candidate {
             *probabilities
                 .entry(lang.name.clone().to_lowercase())
@@ -307,7 +326,7 @@ pub fn resolve_language(
         }
     }
 
-    if let Ok(candidates) = resolve_languages_by_extension(&file, container) {
+    if let Ok(candidates) = resolve_languages_by_extension_str(&file_ext, container) {
         for candidate in candidates {
             *probabilities
                 .entry(candidate.name.clone().to_lowercase())
@@ -315,7 +334,9 @@ pub fn resolve_language(
         }
     }
 
-    if let Ok(Some(candidate)) = resolve_language_by_content(&file, container) {
+    if let Ok(Some(candidate)) =
+        resolve_language_by_content_str(&file_contents, file_ext, container)
+    {
         *probabilities
             .entry(candidate.name.clone().to_lowercase())
             .or_insert(1) += 50;
@@ -329,12 +350,12 @@ pub fn resolve_language(
         }
     });
 
-    if !ordered.is_empty() {
-        return Ok(Some(
-            container
-                .get_language_by_name(ordered.get(0).unwrap().0)
-                .unwrap(),
-        ));
+    let mut ordered: Vec<(&String, &usize)> = probabilities.iter().collect();
+    ordered.sort_by(|a, b| b.1.cmp(a.1).then_with(|| a.0.cmp(b.0)));
+
+    if let Some((name, _)) = ordered.first() {
+        Ok(container.get_language_by_name(name))
+    } else {
+        Err(LinguistError::LanguageNotFound)
     }
-    Err(LinguistError::LanguageNotFound)
 }

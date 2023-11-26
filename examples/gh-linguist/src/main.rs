@@ -1,6 +1,6 @@
 use linguist::{
     container::InMemoryLanguageContainer,
-    resolver::{resolve_language, Scope},
+    resolver::{resolve_language_from_file, Scope},
     utils::{is_configuration, is_documentation, is_dotfile, is_vendor},
 };
 use regex::RegexSet;
@@ -59,7 +59,7 @@ fn main() {
             continue;
         }
 
-        let language = match resolve_language(entry.path(), &lc) {
+        let language = match resolve_language_from_file(entry.path(), &lc) {
             Ok(Some(lang)) => lang,
             _ => continue,
         };
