@@ -37,9 +37,12 @@ pub static DOCS: &[&str; 18] = &[
 /// ```
 pub fn is_configuration(file: impl AsRef<Path>) -> bool {
     if let Some(ext) = file.as_ref().to_path_buf().extension() {
-        return CONFIGURATION_EXTENSIONS.contains(&ext.to_str().unwrap());
+        is_configuration_from_str(ext.to_str().unwrap().to_string());
     }
     false
+}
+pub fn is_configuration_from_str(file_ext_str: String) -> bool {
+    return CONFIGURATION_EXTENSIONS.contains(&file_ext_str.as_str());
 }
 
 /// Checks if a file is documentation by checking if it matches any of the documentation rules.
@@ -56,6 +59,9 @@ pub fn is_configuration(file: impl AsRef<Path>) -> bool {
 /// ```
 pub fn is_documentation(file: impl AsRef<Path>, matcher: &RegexSet) -> bool {
     matcher.is_match(file.as_ref().display().to_string().as_str())
+}
+pub fn is_documentation_from_str(file_str: String, matcher: &RegexSet) -> bool {
+    matcher.is_match(file_str.as_str())
 }
 
 /// Checks if a file is a dotfile by checking if it starts with a dot.
@@ -79,10 +85,17 @@ pub fn is_documentation(file: impl AsRef<Path>, matcher: &RegexSet) -> bool {
 pub fn is_dotfile(file: impl AsRef<Path>) -> bool {
     file.as_ref().display().to_string().starts_with('.')
 }
+pub fn is_dotfile_from_str(file_str: String) -> bool {
+    file_str.starts_with('.')
+}
 
 /// Checks if a file is a vendor file by checking if it matches any of the vendor rules.
 pub fn is_vendor(file: impl AsRef<Path>, matcher: &RegexSet) -> bool {
     matcher.is_match(file.as_ref().to_str().unwrap_or(""))
+}
+/// Checks if a file str is a vendor file by checking if it matches any of the vendor rules.
+pub fn is_vendor_from_str(file_str: String, matcher: &RegexSet) -> bool {
+    matcher.is_match(file_str.as_str())
 }
 
 const FIRST_FEW_BYTES: usize = 8000;
